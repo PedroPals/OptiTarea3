@@ -1,76 +1,67 @@
 from testParser import parse_file
 import gurobipy as gp
-from gurobipy import Model
-from gurobipy import GRB
+from gurobipy import Model, quicksum, GRB
 import math
 
-
-
-
+# Load the parsed data
 file_path = "Instances/Benchmark_1/coord20-5-1.dat"
 parsed_data = parse_file(file_path)
 
-num_customers = parsed_data["num_customers"]
-num_depots = parsed_data["num_depots"]
-depots = parsed_data["depots"]
-customers = parsed_data["customers"]
-vehicle_capacity = parsed_data["vehicle_capacity"]
-depot_capacities = parsed_data["depot_capacities"]
-customer_demands = parsed_data["customer_demands"]
-depot_opening_costs = parsed_data["depot_opening_costs"]
-route_opening_cost = parsed_data["route_opening_cost"]
-distance_matrix = parsed_data["distance_matrix"]
+# Extract parameters from parsed data
+n = parsed_data["num_customers"]  # Number of customers
+m = parsed_data["num_depots"]  # Number of depots
+depots = parsed_data["depots"]  # List of depots (e.g., [0, 1, 2])
+customers = parsed_data["customers"]  # List of customers (e.g., [3, 4, 5, ...])
+vehicle_capacity = parsed_data["vehicle_capacity"]  # Capacity of a vehicle
+depot_capacities = parsed_data["depot_capacities"]  # List of depot capacities
+customer_demands = parsed_data["customer_demands"]  # List of customer demands
+opening_costs_depots = parsed_data["depot_opening_costs"]  # List of depot opening costs
+route_opening_cost = parsed_data["route_opening_cost"]  # Cost of opening a route
+costs = parsed_data["distance_matrix"]  # Distance matrix
 
-# Crear un Modelo:
-model = Model("F-MDRP")
-# Definir variables:
+# Hacer que keys() funcione
+arc_indices = [(i, j) for i in range(m + n) for j in range(m + n) if i != j]
+
+# Create a Gurobi model
+model = Model("F-MDRP_CDA")
+
+# Variables
+x = model.addVars(arc_indices, vtype=GRB.BINARY, name="x") #Variable Binaria que indica si el arco de i a j está siendo usado
+v = model.addVars([(i, d) for i in customers for d in depots], vtype=GRB.CONTINUOUS, name="v") # Variable continua que indica si el cliente está asignado a un depot d
+y = model.addVars(depots, vtype=GRB.BINARY, name="y") #Variable binaria que indica si el depot d está abierto
 
 
+#Funcion objetivo
 
-x = model.addVars(customers, customers, vtype=GRB.BINARY, name="x")  # Variables de las rutas, si un customer se encuentra con otro, es 1. Si no, 0.
+model.setObjective(
+    gp.quicksum(costs[i, j] * x[i, j] for i, j in costs.keys()) + # Minimizar el costo de la ruta +
+    gp.quicksum(opening_costs_depots[d] * y[d] for d in depots) + # El costo del inicio del depot +
+    route_opening_cost * gp.quicksum(x[d, i] for d in depots for i in customers), # El inicio de la ruta.
+    GRB.MINIMIZE
+)
 
-y = model.addVars(num_depots, vtype=GRB.BINARY, name="y")  # Variable de depots de inicio
+# Restricción CDA
+# Asegura que cada cliente este asignado a un sólo depot
+model.addConstrs((gp.quicksum(v[i, d] for d in depots) == 1 for i in customers), "client_assignment")
 
-c = model.addVars(distance_matrix, vtype=GRB.BINARY, name= "c") # Costo asociado a cada arco
+# Asegura que si se ocupa un arco [i,d], el cliente [d,i] o [i,d] estará ahí
+model.addConstrs((x[d, i] <= v[i, d] for d in depots for i in customers), "client_inclusion_outgoing")
+model.addConstrs((x[i, d] <= v[i, d] for d in depots for i in customers), "client_inclusion_incoming")
 
-# Objective: Minimize total cost
-model.setObjective(sum(c[i, j] * x[i, j] for (i, j) in c), GRB.MINIMIZE)
+# Restriccion que elimina subtours
+model.addConstrs((v[i, d] + x[i, j] <= v[j, d] + 1 for d in depots for i in customers for j in customers if i != j), "path_elimination")
 
-# Restricciones
-# Cada cliente es limitado una única vez
-for j in range(num_customers):
-    model.addConstr(sum(x[i, j] for i in range(num_customers) if i != j) == 1, name=f"VisitOnce_{j}")
+# Restricciones genéricas
+# Restriccion capacidad depot
+model.addConstrs((gp.quicksum(customer_demands[i] * v[i, d] for i in customers) <= depot_capacities[d] * y[d] for d in depots), "depot_capacity")
 
-# Each client is visited exactly once
-for i in clients:
-    model.addConstr(quicksum(x[i, j] for j in clients) == 1, name=f"VisitOnce_{i}")
+# Restriccion capacidad vehiculo
+model.addConstrs((gp.quicksum(customer_demands[i] * x[i, j] for i in customers for j in customers if i != j) <= vehicle_capacity for d in depots), "vehicle_capacity")
 
-# Each client is returned to the depot
-for i in clients:
-    model.addConstr(quicksum(x[j, i] for j in clients) == 1, name=f"ReturnToDepot_{i}")
+# Restriccion depot abierto
+model.addConstrs((v[i, d] <= y[d] for d in depots for i in customers), "depot_open")
+
 
 # Solve the model
 model.optimize()
 
-# Verificar si la optimización fue exitosa:
-if model.status == GRB.OPTIMAL:
-
-    # Mostrar resultados:
-    print("Resultados:")
-    # Imprimir valores truncados
-    for v in model.getVars()[:-1]:
-        print(f"{v.varName}: {math.floor(v.x)}")
-    print(f'F.O.: {model.objVal}')
-
-    # Imprimir valores duales
-    print("\nValores duales:")
-    for constr in model.getConstrs():
-        print(f"{constr.constrName}: {constr.Pi}")
-    # Imprimir rangos de sensibilidad
-    model.printAttr('SAObjLow')  # Rango inferior coeficiente objetivo
-    model.printAttr('SAObjUp')  # Rango superior coeficiente objetivo
-    model.printAttr('SARHSUp')  # Rango superior lado derecho restricción
-    model.printAttr('SARHSLow')  # Rango superior lado derecho restricción
-
-else:
-    print("No se pudo encontrar una solución óptima.")
