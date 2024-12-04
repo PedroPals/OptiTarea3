@@ -35,18 +35,19 @@ def parse_file(file_path):
     }
 
 
-# Ejemplo de uso
-file_path = "Instances/Benchmark_1/coord20-5-1.dat"
-parsed_data = parse_file(file_path)
+if __name__ == "__main__":
+    # Ejemplo de uso
+    file_path = "Instances/Benchmark_1/coord20-5-1.dat"
+    parsed_data = parse_file(file_path)
 
-# Mostrar resultados
-print("Número de clientes:", parsed_data["num_customers"])
-print("Número de depósitos:", parsed_data["num_depots"])
-print("Depósitos:", parsed_data["depots"])
-print("Clientes:", parsed_data["customers"])
-print("Capacidad del vehículo:", parsed_data["vehicle_capacity"])
-print("Capacidades de los depósitos:", parsed_data["depot_capacities"])
-print("Demandas de los clientes:", parsed_data["customer_demands"])
-print("Costos de apertura de depósitos:", parsed_data["depot_opening_costs"])
-print("Costo de apertura de ruta:", parsed_data["route_opening_cost"])
-print("Matriz de distancias (primera fila):", parsed_data["distance_matrix"][0])
+    # Mostrar resultados
+    print("Número de clientes:", parsed_data["num_customers"])
+    print("Número de depósitos:", parsed_data["num_depots"])
+    print("Depósitos:", parsed_data["depots"])
+    print("Clientes:", parsed_data["customers"])
+    print("Capacidad del vehículo:", parsed_data["vehicle_capacity"])
+    print("Capacidades de los depósitos:", parsed_data["depot_capacities"])
+    print("Demandas de los clientes:", parsed_data["customer_demands"])
+    print("Costos de apertura de depósitos:", parsed_data["depot_opening_costs"])
+    print("Costo de apertura de ruta:", parsed_data["route_opening_cost"])
+    print("Matriz de distancias (primera fila):", parsed_data["distance_matrix"][0])
