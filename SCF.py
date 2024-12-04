@@ -71,6 +71,7 @@ def modelo_scf_cplex(parsed_data):
 
     return mdl
 
+
 def modelo_scf_gurobi(parsed_data):
     """
     Implementación del modelo SCF (Single Commodity Flow) usando Gurobi.
@@ -139,10 +140,10 @@ def modelo_scf_gurobi(parsed_data):
 
     return mdl
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     # Load the parsed data
-    file_path = "Instances/Benchmark_1/coord20-5-1.dat"
+    file_path = "Instances/Benchmark_1/coord100-10-3b.dat"
     parsed_data = parse_file(file_path)
 
     model = modelo_scf_cplex(parsed_data)
@@ -176,7 +177,7 @@ if __name__ == "__main__":
         "Instancia": file_path,
         "Número de Variables": len(model.getVars()),
         "Número de Restricciones": len(model.getConstrs()),
-        "Valor Función Objetivo": model.objVal,
+        "Valor Función Objetivo": model.objVal if model.status == GRB.OPTIMAL else "N/A",
         "Tiempo de Cómputo (s)": end_time - start_time
     }
 
